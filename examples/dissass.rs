@@ -6,10 +6,12 @@ fn main() -> Result<()> {
     SimpleLogger::new().with_colors(true).init().unwrap();
 
     let dissassembler = Dissassembler::new();
-    let mut function = dissassembler.dissassemble_function(&NO_LOOP_DATA, 0x1400014e0);
+    let mut function = dissassembler.dissassemble_function(&PRINT_DATA, 0x140001470);
     function.fix_relocations(0x140001470)?;
 
-    println!("{function}");
+    let bytes = function.to_bytes();
+
+    println!("{bytes:X?}");
 
     Ok(())
 }

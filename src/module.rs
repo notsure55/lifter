@@ -43,7 +43,7 @@ impl Module {
 
                 blocks.insert(block.start_addr(), block);
             } else {
-                log::info!("Failed to get basicblock");
+                log::info!("{addr:?}");
             }
         }
 
@@ -51,13 +51,13 @@ impl Module {
 
         Self { blocks, cfg }
     }
-    pub fn fix_relocations(&mut self, new_addr: u64) -> Result<()> {
+    pub fn fix_relocations(&mut self, new_addr: u64) -> Result<&mut Self> {
         self.start_addr();
 
         self.blocks.fix_rip_relatives(new_addr)?;
         self.blocks.fix_short_jmps()?;
 
-        Ok(())
+        Ok(self)
     }
     pub fn start_addr(&self) -> u64 {
         let (addr, _) = self.blocks.blocks.first_key_value().unwrap();

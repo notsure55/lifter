@@ -124,6 +124,7 @@ impl BasicBlocks {
         Ok(())
     }
     pub fn fix_short_jmps(&mut self) -> Result<()> {
+        log::info!("Fixing short jumps!");
         for (block_addr, block) in self.blocks.iter_mut() {
             for (addr, ins) in block.instructions.iter_mut() {
                 if ins.is_jmp_short_or_near() || ins.is_jcc_short_or_near() {
@@ -181,7 +182,7 @@ pub fn create_call_from_indirect_call(ins: &Instruction) -> Result<BTreeMap<u64,
 
     let len = get_ins_len(&new_ins2)?;
     new_ins2.set_len(len);
-    new_ins2.set_ip(ins.ip() + new_ins1.len() as u64);
+    new_ins2.set_ip(ins.ip() + 1);
 
     new_instructions.insert(new_ins1.ip(), new_ins1);
     new_instructions.insert(new_ins2.ip(), new_ins2);
@@ -210,7 +211,7 @@ pub fn create_jmp_from_indirect_jmp(ins: &Instruction) -> Result<BTreeMap<u64, I
 
     let len = get_ins_len(&new_ins2)?;
     new_ins2.set_len(len);
-    new_ins2.set_ip(ins.ip() + new_ins1.len() as u64);
+    new_ins2.set_ip(ins.ip() + 1);
 
     new_instructions.insert(new_ins1.ip(), new_ins1);
     new_instructions.insert(new_ins2.ip(), new_ins2);
@@ -286,6 +287,8 @@ impl BasicBlock {
             if work_list.contains(&ins.next_ip())
                 || basic_blocks.blocks.contains_key(&ins.next_ip())
             {
+                log::info!("Worklist already contains this ip or basic_blocks already parsed this block = {:X}", ins.next_ip());
+                log::info!("Current worklist = {:?}", work_list);
                 break;
             }
         }
