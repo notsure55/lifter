@@ -64,23 +64,23 @@ impl BasicBlocks {
         }
     }
 
+    // ignore new_address for now
     pub fn fix_rip_relatives(&mut self, new_addr: u64) -> Result<()> {
         let mut offset = 0;
+
+        let start_addr = {
+            let (start_addr, _) = self.blocks.first_key_value().unwrap();
+            *start_addr
+        };
 
         for (block_addr, block) in self.blocks.iter_mut() {
             let mut new_instructions: BTreeMap<u64, Instruction> = BTreeMap::new();
 
             for (_, ins) in block.instructions.iter() {
-                if ins.is_jmp_near()
-                    || ins.is_jcc_near()
-                    || ins.is_jmp_near()
-                    || ins.is_jmp_far()
-                    || ins.is_jmp_near_indirect()
-                    || ins.is_jmp_far_indirect()
-                {
+                if ins.is_jmp_near() || ins.is_jcc_near() || ins.is_jmp_near() || ins.is_jmp_far() {
                     log::info!("Found jmp patching!");
 
-                    let instructions = create_jmp_from_indirect_jmp(ins)?;
+                    let instructions = create_jmp_from_relative_jmp(ins)?;
 
                     new_instructions.extend(&instructions);
                 } else if ins.is_call_near()
@@ -96,6 +96,12 @@ impl BasicBlocks {
 
                         new_instructions.extend(&instructions);
                     }
+                } else if ins.is_jmp_near_indirect() || ins.is_jmp_far_indirect() {
+                    log::info!("Indirect jmp found!");
+
+                    let instructions = create_jmp_from_indirect_jmp(ins)?;
+
+                    new_instructions.extend(&instructions);
                 } else if ins.is_ip_rel_memory_operand() {
                     log::info!("Found relative instruction patching!");
                     new_instructions.extend(&create_mov_64_from_relative_lea(ins)?);
@@ -105,14 +111,16 @@ impl BasicBlocks {
             block.instructions.append(&mut new_instructions);
 
             let mut encoder = Encoder::new(64);
+
             for (addr, ins) in block.instructions.iter() {
-                self.address_map.insert(*addr, new_addr + offset);
-                offset += encoder.encode(&ins, new_addr + offset)? as u64;
+                self.address_map.insert(*addr, start_addr + offset);
+                offset += encoder.encode(&ins, start_addr + offset)? as u64;
             }
 
             let bytes = encoder.take_buffer();
+
             let mut decoder =
-                Decoder::with_ip(64, &bytes, new_addr + offset - bytes.len() as u64, 0);
+                Decoder::with_ip(64, &bytes, start_addr + offset - bytes.len() as u64, 0);
 
             block.instructions.clear();
 
@@ -124,16 +132,13 @@ impl BasicBlocks {
         Ok(())
     }
     pub fn fix_short_jmps(&mut self) -> Result<()> {
-        log::info!("Fixing short jumps!");
         for (block_addr, block) in self.blocks.iter_mut() {
             for (addr, ins) in block.instructions.iter_mut() {
                 if ins.is_jmp_short_or_near() || ins.is_jcc_short_or_near() {
                     let displacement = ins.memory_displacement64();
 
                     if let Some(new_displacement) = self.address_map.get(&displacement) {
-                        log::info!("Setting new displacement {new_displacement:X} for {ins}");
                         ins.set_memory_displacement64(*new_displacement);
-                        log::info!("New short jmp = {ins}");
                     }
                 }
             }
@@ -193,6 +198,33 @@ pub fn create_call_from_indirect_call(ins: &Instruction) -> Result<BTreeMap<u64,
 }
 
 pub fn create_jmp_from_indirect_jmp(ins: &Instruction) -> Result<BTreeMap<u64, Instruction>> {
+    let mut new_instructions: BTreeMap<u64, Instruction> = BTreeMap::new();
+
+    log::info!("Old Instruction = {ins}");
+
+    let indirect_value = unsafe { *(ins.memory_displacement64() as *const u64) };
+
+    let mut new_ins1 = Instruction::with2(Code::Mov_r64_imm64, Register::RAX, indirect_value)?;
+
+    let len = get_ins_len(&new_ins1)?;
+    new_ins1.set_len(len);
+    new_ins1.set_ip(ins.ip());
+
+    let mut new_ins2 = Instruction::with1(Code::Jmp_rm64, Register::RAX)?;
+
+    let len = get_ins_len(&new_ins2)?;
+    new_ins2.set_len(len);
+    new_ins2.set_ip(ins.ip() + 1);
+
+    new_instructions.insert(new_ins1.ip(), new_ins1);
+    new_instructions.insert(new_ins2.ip(), new_ins2);
+
+    log::info!("New Instructions = {new_ins1} {new_ins2}");
+
+    Ok(new_instructions)
+}
+
+pub fn create_jmp_from_relative_jmp(ins: &Instruction) -> Result<BTreeMap<u64, Instruction>> {
     let mut new_instructions: BTreeMap<u64, Instruction> = BTreeMap::new();
 
     log::info!("Old Instruction = {ins}");
