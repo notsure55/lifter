@@ -1,5 +1,5 @@
 use anyhow::Result;
-use iced_x86::{Decoder, Encoder};
+use iced_x86::Encoder;
 use std::fmt;
 
 use super::basicblock::{BasicBlock, BasicBlocks};
@@ -14,10 +14,10 @@ pub struct Module {
 impl fmt::Display for Module {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (_, block) in self.blocks.blocks.iter() {
-            write!(f, "{}\n", block);
+            write!(f, "{}\n", block)?;
         }
 
-        write!(f, "{}", self.cfg);
+        write!(f, "{}", self.cfg)?;
 
         Ok(())
     }
@@ -43,7 +43,7 @@ impl Module {
 
                 blocks.insert(block.start_addr(), block);
             } else {
-                log::info!("{addr:?}");
+                log::warn!("Reached none basic block at: {addr:?}");
             }
         }
 
@@ -51,10 +51,10 @@ impl Module {
 
         Self { blocks, cfg }
     }
-    pub fn fix_relocations(&mut self, new_addr: u64) -> Result<&mut Self> {
+    pub fn fix_relocations(&mut self) -> Result<&mut Self> {
         self.start_addr();
 
-        self.blocks.fix_rip_relatives(new_addr)?;
+        self.blocks.fix_rip_relatives()?;
         self.blocks.fix_short_jmps()?;
 
         Ok(self)

@@ -20,14 +20,14 @@ impl CFBlock {
 
 impl fmt::Display for CFBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, " Successors \n",);
+        write!(f, " Successors \n",)?;
         for succ in self.successors.iter() {
-            write!(f, "  {succ:X}\n",);
+            write!(f, "  {succ:X}\n",)?;
         }
 
-        write!(f, " Predecessors \n",);
+        write!(f, " Predecessors \n",)?;
         for pred in self.predecessors.iter() {
-            write!(f, "  {pred:X}\n",);
+            write!(f, "  {pred:X}\n",)?;
         }
 
         Ok(())
@@ -56,7 +56,7 @@ impl Cfg {
 impl fmt::Display for Cfg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (addr, cf_block) in self.0.iter() {
-            write!(f, "Address: {addr:X}\n{cf_block}");
+            write!(f, "Address: {addr:X}\n{cf_block}")?;
         }
         Ok(())
     }

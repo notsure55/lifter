@@ -1,12 +1,13 @@
-use iced_x86::{
-    self, Code, Decoder, DecoderOptions, Encoder, Instruction, MemoryOperand, Mnemonic, OpKind,
-    Register,
-};
+#![allow(dead_code)]
+
+use iced_x86::{self, Code, Encoder, Instruction, Register};
 
 use anyhow::Result;
 
 mod basicblock;
 mod cfg;
+pub mod helper;
+mod ins;
 mod module;
 
 use module::Module;
